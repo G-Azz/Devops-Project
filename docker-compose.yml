@@ -1,35 +1,41 @@
+version: "3.8"
+
 services:
   mysqldb:
     image: mysql:8.0
     container_name: mysqldb
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: timesheet_devops_db
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: timesheet_db
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: apppass
     ports:
-      - "3306:3306"
+      - "3307:3306"   # host:container (change host port if you want)
     command: --default-authentication-plugin=mysql_native_password
     volumes:
       - db_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -prootpass || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 20
+      start_period: 20s
 
   app:
     image: azizgharbi205/devops-project:1.0.0
     container_name: timesheet-app
+    restart: unless-stopped
     depends_on:
       mysqldb:
         condition: service_healthy
     ports:
       - "8082:8082"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysqldb:3306/timesheet_devops_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysqldb:3306/timesheet_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: appuser
+      SPRING_DATASOURCE_PASSWORD: apppass
       LOGGING_FILE_NAME: /app/logs/timesheet-devops.log
-    restart: unless-stopped
 
 volumes:
   db_data:
