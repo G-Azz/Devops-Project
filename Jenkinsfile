@@ -43,29 +43,26 @@ pipeline {
       }
     }
 
-    stage('SonarQube Analysis') {
-      steps {
-        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-          withSonarQubeEnv("${SONARQUBE_SERVER}") {
-            sh """
-              mvn -B sonar:sonar \
-                -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
-                -Dsonar.login=$SONAR_TOKEN
-            """
-          }
-        }
-      }
+   stage('SonarQube Analysis') {
+  steps {
+    withSonarQubeEnv("${SONARQUBE_SERVER}") {
+      sh """
+        mvn -B sonar:sonar \
+          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+          -Dsonar.projectName='${SONAR_PROJECT_NAME}'
+      """
     }
+  }
+}
 
-    stage('Quality Gate') {
-      steps {
-        // Requires SonarQube webhook configured + SonarQube Scanner for Jenkins plugin
-        timeout(time: 5, unit: 'MINUTES') {
-          waitForQualityGate abortPipeline: true
-        }
-      }
+stage('Quality Gate') {
+  steps {
+    timeout(time: 5, unit: 'MINUTES') {
+      waitForQualityGate abortPipeline: true
     }
+  }
+}
+
 
     stage('DOCKER IMAGE') {
       steps {
