@@ -11,6 +11,7 @@ pipeline {
     APP_NAME       = "devops-project"
     IMAGE_TAG      = "1.0.0"
     IMAGE          = "${DOCKERHUB_USER}/${APP_NAME}:${IMAGE_TAG}"
+    K8S_NAMESPACE  = "devops"
   }
 
   stages {
@@ -27,6 +28,7 @@ pipeline {
         sh 'mvn -version'
         sh 'docker --version'
         sh 'docker compose version'
+        sh 'kubectl version --client'
       }
     }
 
@@ -61,10 +63,27 @@ pipeline {
 
     stage('DOCKER-COMPOSE') {
       steps {
-        // expects docker-compose.yml at repo root
         sh 'docker compose down || true'
         sh 'docker compose up -d --build'
         sh 'docker compose ps'
+      }
+    }
+
+    stage('Kubernetes Deploy') {
+      steps {
+        sh 'kubectl get nodes'
+        sh """
+          kubectl get ns ${K8S_NAMESPACE} >/dev/null 2>&1 || kubectl create namespace ${K8S_NAMESPACE}
+        """
+      }
+    }
+
+    stage('Deploy MySQL & Spring Boot on K8s') {
+      steps {
+        sh "kubectl apply -n ${K8S_NAMESPACE} -f k8s/mysql-deployment.yaml"
+        sh "kubectl apply -n ${K8S_NAMESPACE} -f k8s/spring-deployment.yaml"
+        sh "kubectl get pods -n ${K8S_NAMESPACE}"
+        sh "kubectl get svc  -n ${K8S_NAMESPACE}"
       }
     }
   }
