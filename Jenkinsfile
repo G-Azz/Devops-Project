@@ -12,6 +12,11 @@ pipeline {
     IMAGE_TAG      = "1.0.0"
     IMAGE          = "${DOCKERHUB_USER}/${APP_NAME}:${IMAGE_TAG}"
     K8S_NAMESPACE  = "devops"
+
+    // ---- SonarQube ----
+    SONARQUBE_SERVER = "sonarqube"       // Jenkins > Configure System > SonarQube servers (Name)
+    SONAR_PROJECT_KEY = "devops-project" // must be unique in SonarQube
+    SONAR_PROJECT_NAME = "Devops-Project"
   }
 
   stages {
@@ -35,6 +40,30 @@ pipeline {
     stage('Build JAR') {
       steps {
         sh 'mvn -B clean package -DskipTests'
+      }
+    }
+
+    stage('SonarQube Analysis') {
+      steps {
+        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+          withSonarQubeEnv("${SONARQUBE_SERVER}") {
+            sh """
+              mvn -B sonar:sonar \
+                -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
+                -Dsonar.login=$SONAR_TOKEN
+            """
+          }
+        }
+      }
+    }
+
+    stage('Quality Gate') {
+      steps {
+        // Requires SonarQube webhook configured + SonarQube Scanner for Jenkins plugin
+        timeout(time: 5, unit: 'MINUTES') {
+          waitForQualityGate abortPipeline: true
+        }
       }
     }
 
@@ -89,6 +118,47 @@ pipeline {
   }
 
   post {
+    success {
+      emailext(
+        to: 'aziz.gharbi@esprit.tn',
+        subject: "✅ Jenkins SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+        body: """Build succeeded ✅
+
+Job: ${env.JOB_NAME}
+Build: #${env.BUILD_NUMBER}
+URL: ${env.BUILD_URL}
+"""
+      )
+    }
+
+    unstable {
+      emailext(
+        to: 'aziz.gharbi@esprit.tn',
+        subject: "⚠️ Jenkins UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+        body: """Build unstable ⚠️
+
+Job: ${env.JOB_NAME}
+Build: #${env.BUILD_NUMBER}
+URL: ${env.BUILD_URL}
+"""
+      )
+    }
+
+    failure {
+      emailext(
+        to: 'aziz.gharbi@esprit.tn',
+        subject: "❌ Jenkins FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+        body: """Build failed ❌
+
+Job: ${env.JOB_NAME}
+Build: #${env.BUILD_NUMBER}
+URL: ${env.BUILD_URL}
+
+Check console output for details.
+"""
+      )
+    }
+
     always {
       sh 'docker logout || true'
     }
