@@ -43,17 +43,19 @@ pipeline {
       }
     }
 
-   stage('SonarQube Analysis') {
+stage('SonarQube Analysis') {
   steps {
     withSonarQubeEnv("${SONARQUBE_SERVER}") {
       sh """
-        mvn -B sonar:sonar \
+        mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
           -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-          -Dsonar.projectName='${SONAR_PROJECT_NAME}'
+          -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
+          -Dsonar.token=$SONAR_AUTH_TOKEN
       """
     }
   }
 }
+
 
 stage('Quality Gate') {
   steps {
