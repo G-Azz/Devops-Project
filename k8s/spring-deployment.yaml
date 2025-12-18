@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spring-config
+data:
+  SPRING_DATASOURCE_URL: "jdbc:mysql://mysql-service:3306/timesheetdb?createDatabaseIfNotExist=true^&useSSL=false^&allowPublicKeyRetrieval=true"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: spring-secret
+type: Opaque
+data:
+  # base64(root) = cm9vdA==
+  SPRING_DATASOURCE_USERNAME: cm9vdA==
+  SPRING_DATASOURCE_PASSWORD: cm9vdA==
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: spring-app
+  template:
+    metadata:
+      labels:
+        app: spring-app
+    spec:
+      containers:
+        - name: spring-app
+          image: azizgharbi205/devops-project:1.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8082
+          envFrom:
+            - configMapRef:
+                name: spring-config
+            - secretRef:
+                name: spring-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spring-service
+spec:
+  type: NodePort
+  selector:
+    app: spring-app
+  ports:
+    - port: 8082
+      targetPort: 8082
+      nodePort: 30080
